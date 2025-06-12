@@ -1,8 +1,8 @@
 // Типы данных 
-export type ItemCategory = 'софт скил' | 'хард-скил' | 'другое' | 'кнопка' | 'дополнительное'; 
+export type ItemCategory = 'софт-скил' | 'хард-скил' | 'другое' | 'кнопка' | 'дополнительное'; 
  
 export const CategoryMapping: Record<ItemCategory, string> = { 
-  'софт скил': 'soft',  
+  'софт-скил': 'soft',  
   'хард-скил': 'hard', 
   'другое': 'other', 
   'кнопка': 'button', 
