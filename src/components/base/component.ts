@@ -3,6 +3,11 @@ export abstract class Component<T> {
     constructor(protected readonly container: HTMLElement) {
     }
 
+    // Геттер для доступа к контейнеру
+    get containerElement(): HTMLElement {
+        return this.container;
+    }
+
     // Изменяет состояние CSS класса элемента
 	changeClassState(
         element: HTMLElement, 

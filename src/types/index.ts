@@ -9,7 +9,7 @@ export const CategoryMapping: Record<ItemCategory, string> = {
   'дополнительное': 'additional', 
 }; 
 
-// Тип для данных товара с сервера (без inBasket)
+
 export interface ServerItem {
   id: string;
   description: string;
@@ -19,15 +19,12 @@ export interface ServerItem {
   title: string;
 }
 
-// Тип для товара в клиентском приложении
-export interface Item extends ServerItem {
-  itemIndex: number;
-  inBasket: boolean;
-}
+// Убираем избыточный тип Item, используем ServerItem напрямую
+export type Item = ServerItem;
  
 export interface Showcase { 
-  items: Item[]; 
-  getItem(id: string): Item | undefined; 
+  items: ServerItem[]; 
+  getItem(id: string): ServerItem | undefined; 
 } 
  
 export interface Basket { 
@@ -36,7 +33,7 @@ export interface Basket {
   addItem(itemId: string): void; 
   alreadyInBasket(itemId: string): boolean; 
   clear(): void; 
-  getTotal(items: Item[]): number; // Принимаем массив товаров для расчета
+  getTotal(items: ServerItem[]): number; // Принимаем массив товаров для расчета
   getCount(): number; 
   removeItem(itemId: string): void; 
 } 
@@ -51,6 +48,7 @@ export interface OrderFormData {
 } 
  
 export interface Order extends OrderFormData { 
+  id: string;
   clear(): void; 
   getOrderData(): OrderFormData; 
 } 
@@ -62,7 +60,14 @@ export interface ApiClient {
   get<T>(uri: string): Promise<T>; 
   post<T>(uri: string, data: object, method?: ApiMethod): Promise<T>; 
 } 
- 
+
+// Добавляем правильный интерфейс для класса Api
+export interface IApi {
+  baseUrl: string;
+  get<T>(uri: string): Promise<T>;
+  post<T>(uri: string, data: object, method?: 'POST' | 'PUT' | 'DELETE'): Promise<T>;
+}
+
 export interface OrderResult { 
   id?: string; 
   total?: number; 
