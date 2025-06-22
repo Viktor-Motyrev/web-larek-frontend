@@ -24,6 +24,10 @@ export class SuccessView extends Component<ISuccessContent> {
     }
 
     set total(value: number) {
-        this._description.textContent = `Списано ${value} синапсов`;
+        if (value === 0) {
+            this._description.textContent = 'Бесценно';
+        } else {
+            this._description.textContent = `Списано ${value} синапсов`;
+        }
     }
 }

@@ -9,7 +9,6 @@ export class CardView extends Component<ServerItem>  {
     protected events: IEvents;    
 
     protected _itemID: string;
-    protected _itemIndex: HTMLElement;
     protected _price: HTMLElement;
     protected _title: HTMLElement;
 
@@ -19,7 +18,6 @@ export class CardView extends Component<ServerItem>  {
 
         this._title = this.container.querySelector('.card__title') as HTMLElement;
         this._price = this.container.querySelector('.card__price') as HTMLElement;
-        this._itemIndex = null;
     }
 
     set price(value: number | null) {
@@ -32,13 +30,6 @@ export class CardView extends Component<ServerItem>  {
 
     set title( value:string) {
         this._title.textContent = value;
-    }
-
-    // Методы для установки дополнительных данных (вызываются извне при необходимости)
-    setItemIndex(value: number) {
-        if (this._itemIndex) { 
-            this._itemIndex.textContent = String(value);
-        }
     }
 }
 
@@ -90,6 +81,7 @@ export class CardPreview extends CardView {
 
 export class CardBasket extends CardView {
     protected itemDelete: HTMLButtonElement;
+    protected _itemIndex: HTMLElement;
     
     constructor(protected container: HTMLElement, events: IEvents) {
         super(container, events);
@@ -99,22 +91,29 @@ export class CardBasket extends CardView {
         this.itemDelete.addEventListener('click', () =>
 	        this.events.emit('CardBasket: delete_from_basket', { itemID: this._itemID })
 	    );
-    };
+    }
+
+    setItemIndex(value: number) {
+        if (this._itemIndex) { 
+            this._itemIndex.textContent = String(value);
+        }
+    }
 }
 
 export class CardShowcase extends CardView {
     protected _image: HTMLImageElement;
     protected _category: HTMLElement;
+    protected _toBasketButton: HTMLButtonElement;
 
     constructor(protected container: HTMLElement, events: IEvents) {
         super(container, events);
         this._image = this.container.querySelector('.card__image');
         this._category = this.container.querySelector('.card__category');
+        this._toBasketButton = this.container.querySelector('.card__button');
 
-        
         this.container.addEventListener('click', () =>
-	        this.events.emit('CardShowcase: show_preview', { itemID: this._itemID })
-	    );
+            this.events.emit('CardShowcase: show_preview', { itemID: this._itemID })
+        );
     };
 
     set category(value: ItemCategory) { 
@@ -128,6 +127,13 @@ export class CardShowcase extends CardView {
     set image(value: string) {
         if (this._image) {
             this._image.src = CDN_URL + value;
+        }
+    }
+
+    setInBasket(value: boolean) {
+        if(this._toBasketButton) {
+            this.changeDisabledState(this._toBasketButton, value);
+            this._toBasketButton.textContent = ( value ? 'Уже в корзине' : 'В корзину');
         }
     }
 }

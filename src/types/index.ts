@@ -18,9 +18,6 @@ export interface ServerItem {
   price: number | null;
   title: string;
 }
-
-// Убираем избыточный тип Item, используем ServerItem напрямую
-export type Item = ServerItem;
  
 export interface Showcase { 
   items: ServerItem[]; 
@@ -28,14 +25,15 @@ export interface Showcase {
 } 
  
 export interface Basket { 
-  // Храним только ID товаров в корзине
-  itemIds: Set<string>;
+  // Убираем прямое свойство itemIds 
   addItem(itemId: string): void; 
   alreadyInBasket(itemId: string): boolean; 
   clear(): void; 
-  getTotal(items: ServerItem[]): number; // Принимаем массив товаров для расчета
   getCount(): number; 
   removeItem(itemId: string): void; 
+  // Добавляем методы для работы с данными без прямого доступа к itemIds
+  getItemIds(): Set<string>;
+  getItems(): string[];
 } 
  
 export type PaymentMethod = 'card' | 'cash' | 'null'; 
@@ -47,10 +45,12 @@ export interface OrderFormData {
   phone: string; 
 } 
  
-export interface Order extends OrderFormData { 
-  id: string;
+export interface Order { 
   clear(): void; 
   getOrderData(): OrderFormData; 
+  setFieldData<T extends keyof OrderFormData>(field: T, value: OrderFormData[T]): void;
+  validateOrderForm(msg: string): void;
+  validateContactForm(msg: string): void;
 } 
  
 export type ApiMethod = 'POST' | 'PUT' | 'DELETE' | 'PATCH'; 
@@ -61,7 +61,7 @@ export interface ApiClient {
   post<T>(uri: string, data: object, method?: ApiMethod): Promise<T>; 
 } 
 
-// Добавляем правильный интерфейс для класса Api
+// Добавляем  интерфейс для класса Api
 export interface IApi {
   baseUrl: string;
   get<T>(uri: string): Promise<T>;

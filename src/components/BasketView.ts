@@ -1,11 +1,12 @@
-import { Item as IItem } from "../types";
+import { ServerItem as IItem } from "../types";
 import { Component } from "./base/component";
 import { IEvents } from "./base/events";
 
 
 export interface IBasketContent {
     items: IItem[];
-	total: number;
+	total: number | null;
+    itemsCount: number;
 }
 
 export class BasketView extends Component<IBasketContent> {
@@ -36,8 +37,13 @@ export class BasketView extends Component<IBasketContent> {
 		this._listContainer.replaceChildren(...items);
 	}
 
-	set total(price: number) {
-		this._priceContainer.textContent = `${price} синапсов`;
-        this.changeDisabledState(this._orderButton, price == 0);
+	set total(data: { price: number | null; itemsCount: number }) {
+		const { price, itemsCount } = data;
+		if (price === null) {
+			this._priceContainer.textContent = 'Бесценно';
+		} else {
+			this._priceContainer.textContent = `${price} синапсов`;
+		}
+        this.changeDisabledState(this._orderButton, itemsCount === 0); // Кнопка неактивна если корзина пуста
 	}
 }

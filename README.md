@@ -96,6 +96,17 @@ yarn build
 
 ---
 
+## Синхронизация состояния корзины
+
+- Счетчик товаров в корзине (`basketCount`) и содержимое корзины всегда обновляются только через событие `basket:changed`.
+- Любое изменение корзины (добавление, удаление, очистка) должно вызывать это событие.
+- После инициализации приложения событие `basket:changed` вызывается вручную для синхронизации UI.
+- Не обновляйте счетчик корзины напрямую — только через обработчик события.
+
+**Это гарантирует, что отображение всегда соответствует реальному состоянию данных.**
+
+---
+
 ## Взаимодействие частей
 
 **Взаимодействие происходит через EventEmitter:**
@@ -165,17 +176,16 @@ yarn build
 **Конструктор:**
 - `constructor(events: IEvents)` — создаёт экземпляр корзины, принимает объект событий для обработки пользовательских действий
 
-**Свойства:**
-- `itemIds: Set<string>` — множество идентификаторов товаров в корзине
-
 **Методы:**
 - `addItem(itemId: string): void` — добавляет товар в корзину по его идентификатору
-- `get items()` — возвращает список товаров, добавленных в корзину
 - `removeItem(itemId: string)` — удаляет товар из корзины по его идентификатору
 - `alreadyInBasket(itemId: string)` — проверяет, находится ли товар с указанным идентификатором в корзине
 - `clear(): void` — очищает корзину
-- `getTotal(items: ServerItem[])` — возвращает общую стоимость всех товаров в корзине
 - `getCount()` — возвращает количество товаров в корзине
+- `getItemIds(): Set<string>` — возвращает копию множества идентификаторов товаров в корзине
+- `getItems(): string[]` — возвращает массив идентификаторов товаров в корзине
+
+**Примечание:** Для расчета общей стоимости товаров в корзине используется вспомогательная функция `calculateBasketTotal(itemIds: Set<string>, items: ServerItem[]): number` из модуля `utils.ts`. Доступ к данным корзины осуществляется через методы `getItemIds()` или `getItems()` для соблюдения принципов инкапсуляции.
 
 #### Класс `Order`
 
@@ -341,12 +351,6 @@ export interface ServerItem {
 }
 ```
 
-**Item** — тип для клиента:
-
-```typescript
-export type Item = ServerItem;
-```
-
 ### Витрина товаров
 
 ```typescript
@@ -362,15 +366,17 @@ export interface Showcase {
 
 ```typescript
 export interface Basket {
-  itemIds: Set<string>;
   addItem(itemId: string): void;
   alreadyInBasket(itemId: string): boolean;
   clear(): void;
-  getTotal(items: ServerItem[]): number; // Принимаем массив товаров для расчета
   getCount(): number;
   removeItem(itemId: string): void;
+  getItemIds(): Set<string>;
+  getItems(): string[];
 }
 ```
+
+**Примечание:** Для расчета общей стоимости товаров в корзине используется вспомогательная функция `calculateBasketTotal(itemIds: Set<string>, items: ServerItem[]): number` из модуля `utils.ts`. Доступ к данным корзины осуществляется через методы `getItemIds()` или `getItems()` для соблюдения принципов инкапсуляции.
 
 ### Оформление заказа
 
@@ -420,46 +426,37 @@ export interface IApi {
 }
 ```
 
-### Результат оформления заказа
-
-```typescript
-export interface OrderResult {
-  id?: string;
-  total?: number;
-  error?: string;
-  code?: number;
-}
-```
-
 ---
 
 ## Сценарий взаимодействия компонентов
 
 ### Добавление товара в корзину
 
-1. **Клик по кнопке "В корзину"** → `CardShowcase` генерирует событие `CardPreview: move_item_to_basket`
+1. **Клик по кнопке "В корзину"** → `CardPreview` генерирует событие `CardPreview: move_item_to_basket`
 2. **EventEmitter** передает событие всем подписчикам
 3. **Презентер** получает `itemID` и вызывает `basket.addItem(item.id)`
-4. **Модель корзины** добавляет товар в `Set<string> itemIds`
-5. **Обновление UI** → `page.basketCount = basket.getCount()` и `modal.close()`
+4. **Модель корзины** добавляет товар во внутреннее хранилище и генерирует событие `basket:changed`
+5. **Презентер** слушает событие `basket:changed` и обновляет UI → `page.basketCount = basket.getCount()`
+6. **Закрытие модального окна** → `modal.close()`
 
 ### Оформление заказа
 
 6. **Открытие корзины** → событие `page: openBasket` → функция `showBasket()`
 7. **Отображение товаров** → создание `CardBasket` для каждого товара → `BasketView`
-8. **Кнопка "Оформить"** → событие `basketView: showOrderForm` → `OrderFormView`
-9. **Заполнение формы** → события `formView: orderForm.change` → валидация через `order.validateOrderForm()`
-10. **Переход к контактам** → событие `formView: orderForm.submit` → `ContactsFormView`
-11. **Заполнение контактов** → события `formView: contactsForm.change` → валидация
-12. **Отправка заказа** → событие `formView: contactsForm.submit` → `api.postOrder()`
-13. **Успешный ответ** → `basket.clear()` → `SuccessView` с итоговой суммой
+8. **Расчет стоимости** → `calculateBasketTotal(basket.getItemIds(), showcase.items)` → `BasketView.total`
+9. **Кнопка "Оформить"** → событие `basketView: showOrderForm` → `OrderFormView`
+10. **Заполнение формы** → события `formView: orderForm.change` → валидация через `order.validateOrderForm()`
+11. **Переход к контактам** → событие `formView: orderForm.submit` → `ContactsFormView`
+12. **Заполнение контактов** → события `formView: contactsForm.change` → валидация
+13. **Отправка заказа** → событие `formView: contactsForm.submit` → `api.postOrder()` с расчетом стоимости через `calculateBasketTotal(basket.getItemIds(), showcase.items)`
+14. **Успешный ответ** → `basket.clear()` → `SuccessView` с итоговой суммой
 
 ### Дополнительные взаимодействия
 
-- **Удаление товара**: `CardBasket: delete_from_basket` → `basket.removeItem()` → обновление корзины
+- **Удаление товара**: `CardBasket: delete_from_basket` → `basket.removeItem()` → событие `basket:changed` → обновление UI
 - **Предпросмотр**: `CardShowcase: show_preview` → создание `CardPreview` → открытие модального окна
 - **Блокировка прокрутки**: `modal: page.scrollLocked` → `page.scrollLocked = lock`
-- **Завершение**: `successView: submit` → очистка корзины → закрытие модального окна
+- **Завершение**: `successView: submit` → `basket.clear()` → событие `basket:changed` → обновление UI → закрытие модального окна (если корзина пуста)
 
 ### Принципы взаимодействия
 

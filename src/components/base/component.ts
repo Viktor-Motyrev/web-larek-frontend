@@ -20,10 +20,13 @@ export abstract class Component<T> {
     // disabled атрибута
 	changeDisabledState(element: HTMLElement, isDisabled: boolean): void {
 	  if (!element) return;
-	  
-	  isDisabled 
-		? element.setAttribute('disabled', 'true') 
-		: element.removeAttribute('disabled');
+	  if (element instanceof HTMLButtonElement) {
+        element.disabled = isDisabled;
+      } else {
+        isDisabled 
+          ? element.setAttribute('disabled', 'true') 
+          : element.removeAttribute('disabled');
+      }
 	}
 
     render(data?: Partial<T>): HTMLElement {

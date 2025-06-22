@@ -5,7 +5,6 @@ import { FormView } from "./FormView";
 
 export class OrderFormView extends FormView<OrderFormData> {
     protected _addressInput: HTMLInputElement;
-    protected _paymentMethod: PaymentMethod | null = null;
     protected _cashButton: HTMLButtonElement;
     protected _cardButton: HTMLButtonElement;
 
@@ -17,22 +16,16 @@ export class OrderFormView extends FormView<OrderFormData> {
         this._cashButton = ensureElement<HTMLButtonElement>('button[name="cash"]', this.container);
 
         this._cardButton.addEventListener('click', () => {
-            this._cashButton.classList.remove('button_alt-active');
-            this._cardButton.classList.add('button_alt-active');
-            this._paymentMethod = 'card';
             this.events.emit(
                 `formView: ${this.formName}.change`,
-                { field: 'payment', value: this._paymentMethod }
+                { field: 'payment', value: 'card' }
             );
         });
 
         this._cashButton.addEventListener('click', () => {
-            this._cardButton.classList.remove('button_alt-active');
-            this._cashButton.classList.add('button_alt-active');
-            this._paymentMethod = 'cash';
             this.events.emit(
                 `formView: ${this.formName}.change`,
-                { field: 'payment', value: this._paymentMethod }
+                { field: 'payment', value: 'cash' }
             );
         });
     }
@@ -44,6 +37,14 @@ export class OrderFormView extends FormView<OrderFormData> {
 
     set payment(method: PaymentMethod | null) {
         console.log('orderFormView: payment =', method);
-        this._paymentMethod = method;
+        // Обновляем визуальное состояние кнопок на основе данных из модели
+        this._cardButton.classList.remove('button_alt-active');
+        this._cashButton.classList.remove('button_alt-active');
+        
+        if (method === 'card') {
+            this._cardButton.classList.add('button_alt-active');
+        } else if (method === 'cash') {
+            this._cashButton.classList.add('button_alt-active');
+        }
     }
 }

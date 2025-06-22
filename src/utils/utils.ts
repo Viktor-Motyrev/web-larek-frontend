@@ -1,3 +1,5 @@
+import { ServerItem } from '../types';
+
 export function pascalToKebab(value: string): string {
     return value.replace(/([a-z0–9])([A-Z])/g, "$1-$2").toLowerCase();
 }
@@ -132,4 +134,19 @@ export function createElement<
         }
     }
     return element;
+}
+
+/**
+ * Рассчитывает общую стоимость товаров в корзине
+ */
+export function calculateBasketTotal(itemIds: Set<string>, items: ServerItem[]): number | null {
+    const basketItems = items.filter(item => itemIds.has(item.id));
+    
+    // Если в корзине есть хотя бы один бесценный товар, возвращаем null
+    if (basketItems.some(item => item.price === null)) {
+        return null;
+    }
+    
+    // Иначе суммируем цены всех товаров
+    return basketItems.reduce((sum, item) => sum + (item.price || 0), 0);
 }

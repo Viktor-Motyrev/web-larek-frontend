@@ -1,4 +1,4 @@
-import { Basket as IBasket, ServerItem } from "../types";
+import { Basket as IBasket } from "../types";
 import { IEvents } from "./base/events";
 
 export class Basket implements IBasket {
@@ -37,13 +37,16 @@ export class Basket implements IBasket {
         this.events.emit('basket:changed');
     }
 
-    getTotal(items: ServerItem[]) {
-        return items
-            .filter(item => this.itemIds.has(item.id))
-            .reduce((sum, item) => sum + (item.price || 0), 0);
-    }
-
     getCount() {
         return this.itemIds.size;
+    }
+
+    // Методы для доступа к данным без прямого доступа к itemIds
+    getItemIds(): Set<string> {
+        return new Set(this.itemIds);
+    }
+
+    getItems(): string[] {
+        return Array.from(this.itemIds);
     }
 }

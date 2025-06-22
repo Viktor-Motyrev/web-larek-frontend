@@ -15,7 +15,7 @@ import { Showcase } from './components/Showcase';
 import { SuccessView } from './components/SuccessView';
 import { ApiClient, ServerItem, OrderFormData } from './types';
 import { API_URL, settings } from './utils/constants';
-import { cloneTemplate } from './utils/utils';
+import { cloneTemplate, calculateBasketTotal } from './utils/utils';
 
 const events = new EventEmitter();
 
@@ -51,7 +51,7 @@ const contactsFormView = new ContactsFormView( cloneTemplate(formContactsTemplat
 
 const successView = new SuccessView(cloneTemplate(successContainerTemplate), events);
 
-function showBasket() {
+function updateBasketContent() {
 	const items = showcase.items
 		.filter(item => basket.alreadyInBasket(item.id))
 		.map((item: ServerItem, index: number) => {
@@ -62,10 +62,14 @@ function showBasket() {
 	});
 
 	basketView.items = items;
-	basketView.total = basket.getTotal(showcase.items);
-	modal.content = basketView.containerElement;
+	const total = calculateBasketTotal(basket.getItemIds(), showcase.items);
+	basketView.total = { price: total, itemsCount: items.length };
 }
 
+function showBasket() {
+	updateBasketContent();
+	modal.content = basketView.containerElement;
+}
 
 getShowcase();
 
@@ -73,19 +77,25 @@ function getShowcase() {
 	api.getShowcase()
 		.then((items) => {
 			showcase.items = items;
-			const itemsArray = showcase.items.map((item, index)=> {
-					const cardView = new CardShowcase( cloneTemplate(cardCatalogTemplate), events);
-					return cardView.render(item);
-			});
-
-	
-			page.render({ basketCount: basket.getCount(), galleryItems : itemsArray });		
 		})
 		.catch((err) => {
 			console.error('Ошибка при получении:', err);
 		});
 	}
 
+// Обработка данных showcase только после подтверждения от модели
+events.on('showcase:changed', () => {
+	const itemsArray = showcase.items.map((item, index)=> {
+		const cardView = new CardShowcase( cloneTemplate(cardCatalogTemplate), events);
+		return cardView.render(item);
+	});
+	page.render({ galleryItems : itemsArray });
+});
+
+// После инициализации приложения вручную вызываем basket:changed для синхронизации UI
+setTimeout(() => {
+    events.emit('basket:changed');
+}, 0);
 
 // **************************** Наши событиия ***************************** //
 
@@ -99,14 +109,34 @@ events.on('order: orderForm NewData', (data: Partial<OrderFormData> & IFormState
 	orderFormView.render( data);
 });
 
+// данные изменились в модели Order
+events.on('order: dataChanged', (data: { field: keyof OrderFormData; value: any }) => {
+	// Обновляем соответствующее поле в представлении
+	if (data.field === 'address') {
+		orderFormView.address = data.value;
+	} else if (data.field === 'payment') {
+		orderFormView.payment = data.value;
+	} else if (data.field === 'email') {
+		contactsFormView.email = data.value;
+	} else if (data.field === 'phone') {
+		contactsFormView.phone = data.value;
+	}
+});
+
 // нажата кнопка Оплатить в contactsForm
 events.on('formView: contactsForm.submit', () => {
 	successView.total = 0;
 	const basketItems = showcase.items.filter(item => basket.alreadyInBasket(item.id));
-	api.postOrder(order.getOrderData(), basketItems, basket.getTotal(showcase.items))
+	const total = calculateBasketTotal(basket.getItemIds(), showcase.items);
+	const orderData = order.getOrderData();
+	
+	// Если total равен null (есть бесценные товары), отправляем 0
+	const costToSend = total === null ? 0 : total;
+	
+	api.postOrder(orderData, basketItems, costToSend)
 		.then((data) => {
 			basket.clear();
-			successView.total = data.total;
+			successView.total = data.total || 0;
 			modal.content = successView.render();
 			modal.open();
 		})
@@ -144,9 +174,30 @@ events.on('formView: contactsForm.change', (data: { field: keyof OrderFormData; 
 // нажата кнопка В корзину в предпросмотре карточки
 events.on('CardPreview: move_item_to_basket', ({ itemID }: { itemID: string }) => {
 	const item = showcase.getItem(itemID);
+	if (!item) return;
+	if (item.price === null) {
+		// Показываем модальное окно с ошибкой
+		const errorDiv = document.createElement('div');
+		errorDiv.style.padding = '2rem';
+		errorDiv.style.textAlign = 'center';
+		errorDiv.innerHTML = '<h2>Этот товар нельзя добавить в корзину</h2><p>Товар "' + item.title + '" не имеет цены и не может быть куплен.</p>';
+		modal.content = errorDiv;
+		modal.open();
+		return;
+	}
 	basket.addItem(item.id);
-	page.basketCount = basket.getCount();
 	modal.close();
+});
+
+// обновление представления после изменения данных в корзине
+events.on('basket:changed', () => {
+	page.basketCount = basket.getCount();
+	updateBasketContent();
+	
+	// Если корзина пуста, закрываем модальное окно
+	if (basket.getCount() === 0) {
+		modal.close();
+	}
 });
 
 // блокировка/разблокировка прокрутки при открытии/закрытии модалки
@@ -163,6 +214,14 @@ events.on('CardShowcase: show_preview', ({ itemID }: { itemID: string }) => {
 	);
 	cardPreview.render(item);
 	cardPreview.setInBasket(basket.alreadyInBasket(item.id));
+	// Делаем кнопку "В корзину" неактивной для бесценных товаров
+	if (item.price === null) {
+		const btn = cardPreview["_toBasketButton"];
+		if (btn) {
+			btn.disabled = true;
+			btn.textContent = 'Нельзя купить';
+		}
+	}
 	modal.content = cardPreview.containerElement;
 	modal.open();
 });
@@ -175,14 +234,10 @@ events.on('page: openBasket', () => {
 
 // нажали кнопку **За новыми покупками** в successView
 events.on('successView: submit', () => {
-	basket.clear()
-	modal.close();
-	page.basketCount = basket.getCount();
+	basket.clear();
 });
 
 // в корзинной карточке нажали кнопку удаления
 events.on('CardBasket: delete_from_basket', ({ itemID }: { itemID: string }) => {
 	basket.removeItem(itemID);
-	showBasket();
-	page.basketCount = basket.getCount();
 });

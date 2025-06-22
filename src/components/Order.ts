@@ -2,7 +2,6 @@ import { Order as IOrder, OrderFormData as IOrderData, PaymentMethod} from "../t
 import { IEvents } from "./base/events";
 
 export class Order implements IOrder {
-    protected _id = '';
     protected _address = '';
     protected _email = '';
     protected _payment: PaymentMethod = 'null';
@@ -15,31 +14,34 @@ export class Order implements IOrder {
     }
 
     clear() {
-        this._id = '';
         this._address = "";
         this._email = "";
         this._payment = 'null';
         this._phone = "";
     }
 
-    set id(value: string) {
-        this._id = value;
+    set address(value: string) {
+        this._address = value;
+        this.events.emit('order: dataChanged', { field: 'address', value });
     }
-
-    get id(): string {
-        return this._id;
-    }
-
-    set address(value: string) {this._address = value;}
     get address(): string {return this._address;}
 
-    set phone(value: string) {this._phone = value;}
+    set phone(value: string) {
+        this._phone = value;
+        this.events.emit('order: dataChanged', { field: 'phone', value });
+    }
     get phone(): string {return this._phone;}
 
-    set email(value: string) {this._email = value;}
+    set email(value: string) {
+        this._email = value;
+        this.events.emit('order: dataChanged', { field: 'email', value });
+    }
     get email(): string {return this._email;}
 
-    set payment(value: PaymentMethod) {this._payment = value;}
+    set payment(value: PaymentMethod) {
+        this._payment = value;
+        this.events.emit('order: dataChanged', { field: 'payment', value });
+    }
     get payment(): PaymentMethod {return this._payment;}
 
     validateOrderForm(msg: string) {
